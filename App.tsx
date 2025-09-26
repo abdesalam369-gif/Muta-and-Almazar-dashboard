@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Trip, Vehicle, Fuel, Maintenance, Area, VehicleTableData } from './types';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Trip, Vehicle, Fuel, Maintenance, Area, VehicleTableData, DriverStatsData } from './types';
 import { CONFIG, MONTHS_ORDER } from './constants';
 import { loadAllData } from './services/dataService';
 import { generateFleetReport } from './services/geminiService';
@@ -10,6 +10,8 @@ import TableSection from './components/TableSection';
 import AiAnalysisSection from './components/AiAnalysisSection';
 import UtilizationSection from './components/UtilizationSection';
 import Loader from './components/Loader';
+import AreaChartSection from './components/AreaChartSection';
+import DriverStatsSection from './components/DriverStatsSection';
 
 const App: React.FC = () => {
     const [loading, setLoading] = useState(true);
@@ -27,6 +29,9 @@ const App: React.FC = () => {
     const [aiReport, setAiReport] = useState<string>('');
     const [aiLoading, setAiLoading] = useState<boolean>(false);
     const [aiError, setAiError] = useState<string>('');
+    
+    const lineChartRef = useRef<HTMLDivElement>(null);
+    const pieChartRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -87,10 +92,10 @@ const App: React.FC = () => {
         return [...new Set(tripsData.map(r => r['رقم المركبة']).filter(Boolean))].sort();
     }, [tripsData]);
 
-    const vehicleTableData = useMemo<VehicleTableData[]>(() => {
+    const filteredVehicleTableData = useMemo<VehicleTableData[]>(() => {
         const vehGroups: { [key: string]: { trips: number; tons: number; drivers: Set<string> } } = {};
         
-        tripsData.forEach(r => {
+        filteredTrips.forEach(r => {
             const v = r['رقم المركبة'];
             if (!v) return;
             if (!vehGroups[v]) vehGroups[v] = { trips: 0, tons: 0, drivers: new Set() };
@@ -108,8 +113,9 @@ const App: React.FC = () => {
 
             let fuel = 0;
             if(fuelRow) {
-                Object.keys(fuelRow).forEach(k => {
-                    if (k !== 'رقم المركبة') fuel += (Number(fuelRow[k as keyof Fuel]) || 0);
+                const monthsToSum = filters.months.size > 0 ? Array.from(filters.months) : MONTHS_ORDER;
+                monthsToSum.forEach(m => {
+                    fuel += (Number(fuelRow[m as keyof Fuel]) || 0);
                 });
             }
             
@@ -136,14 +142,71 @@ const App: React.FC = () => {
                 cost_ton,
             };
         });
-    }, [tripsData, vehiclesData, areasData, fuelData, maintData]);
+    }, [filteredTrips, vehiclesData, areasData, fuelData, maintData, filters.months]);
+
+    const driverStatsData = useMemo<DriverStatsData[]>(() => {
+        const driverGroups: { [key: string]: { trips: number; tons: number; vehicles: Set<string> } } = {};
+        
+        filteredTrips.forEach(r => {
+            const driver = r['السائق'];
+            if (!driver || driver.trim() === '') return;
+    
+            if (!driverGroups[driver]) {
+                driverGroups[driver] = { trips: 0, tons: 0, vehicles: new Set() };
+            }
+            driverGroups[driver].trips += 1;
+            driverGroups[driver].tons += (Number(r['صافي التحميل']) || 0) / 1000;
+            if (r['رقم المركبة']) {
+                driverGroups[driver].vehicles.add(r['رقم المركبة']);
+            }
+        });
+    
+        return Object.entries(driverGroups).map(([driver, data]) => {
+            const { trips, tons, vehicles } = data;
+            const avgTonsPerTrip = trips > 0 ? tons / trips : 0;
+            
+            return {
+                driver,
+                trips,
+                tons,
+                avgTonsPerTrip,
+                vehicles: [...vehicles].join(', '),
+            };
+        });
+    }, [filteredTrips]);
+    
+    const areaDistributionData = useMemo(() => {
+        const areaMap = new Map<string, string>();
+        areasData.forEach(a => {
+            if (a['رقم المركبة'] && a['المنطقة']) {
+                areaMap.set(a['رقم المركبة'], a['المنطقة']);
+            }
+        });
+
+        const tonsByArea: { [key: string]: number } = {};
+        filteredTrips.forEach(trip => {
+            const vehicleId = trip['رقم المركبة'];
+            if (vehicleId) {
+                const area = areaMap.get(vehicleId) || 'غير محدد';
+                if (!tonsByArea[area]) {
+                    tonsByArea[area] = 0;
+                }
+                tonsByArea[area] += (Number(trip['صافي التحميل'] || 0) / 1000);
+            }
+        });
+
+        return Object.entries(tonsByArea)
+            .map(([name, value]) => ({ name, value: Math.round(value) }))
+            .sort((a, b) => b.value - a.value);
+
+    }, [filteredTrips, areasData]);
 
     const handleGenerateReport = async (analysisType: string, options: { vehicleId?: string; vehicleIds?: string[]; customPrompt?: string }) => {
         setAiLoading(true);
         setAiError('');
         setAiReport('');
         try {
-            const report = await generateFleetReport(vehicleTableData, analysisType, options);
+            const report = await generateFleetReport(filteredVehicleTableData, analysisType, options);
             setAiReport(report);
         } catch (err) {
             setAiError('حدث خطأ أثناء إنشاء التقرير. يرجى المحاولة مرة أخرى.');
@@ -172,18 +235,21 @@ const App: React.FC = () => {
                     fuelData={fuelData} 
                     maintData={maintData} 
                     filters={filters}
-                    vehicleTableData={vehicleTableData}
+                    vehicleTableData={filteredVehicleTableData}
                 />
-                <ChartSection data={filteredTrips} isLoading={isFiltering} />
-                <TableSection fullTableData={vehicleTableData} />
+                <ChartSection data={filteredTrips} isLoading={isFiltering} filters={filters} chartRef={lineChartRef} />
+                <AreaChartSection data={areaDistributionData} isLoading={isFiltering} filters={filters} chartRef={pieChartRef} />
+                <TableSection tableData={filteredVehicleTableData} filters={filters} />
+                <DriverStatsSection tableData={driverStatsData} filters={filters} />
                 <AiAnalysisSection
                     vehicles={allVehiclesList}
                     onGenerateReport={handleGenerateReport}
                     report={aiReport}
                     isLoading={aiLoading}
                     error={aiError}
+                    filters={filters}
                 />
-                <UtilizationSection vehicleTableData={vehicleTableData} />
+                <UtilizationSection tableData={filteredVehicleTableData} filters={filters} />
             </main>
         </div>
     );

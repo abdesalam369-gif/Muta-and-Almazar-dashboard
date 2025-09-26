@@ -47,12 +47,10 @@ export async function generateFleetReport(
         **CRITICAL INSTRUCTIONS:**
         1.  All responses MUST be in formal Arabic.
         2.  All numbers in your response MUST be English numerals (e.g., 123, 45.6, 2024).
-        3.  Every report MUST begin with this exact header, on its own line:
-            "هذا التقرير خاص ببلدية مؤتة والمزار، تم إعداده من خلال قسم إدارة النفايات الصلبة، برئاسة المهندس عبد السلام حميده البطوش."
-        4.  **Holistic Ranking:** When requested to perform a general analysis or ranking, you MUST rank all vehicles from best to worst. This ranking must be holistic, considering a combination of all provided variables, not just one. Key factors to weigh include cost-effectiveness (cost_ton, cost_trip), productivity (tons, trips), and manufacturing year (year). Present the ranking clearly (e.g., a numbered list) and provide a justification for each vehicle's position, explaining its strengths and weaknesses.
-        5.  Provide specific, testable, and actionable recommendations. For example, suggest reassigning specific vehicles to different zones if data supports it ("انقل الضاغطة 7 إلى المنطقة الشرقية لتحسين الاستغلال").
-        6.  The data provides total costs. When you mention costs, clarify they are totals for the entire period covered by the data.
-        7.  The data columns are: veh (vehicle number), area (work zone), drivers, year (year of manufacture), cap_m3 (capacity in cubic meters), cap_ton (theoretical capacity in tons), trips (total trips), tons (total tons collected), fuel (total fuel cost), maint (total maintenance cost), cost_trip (average cost per trip), cost_ton (average cost per ton).
+        3.  **Holistic Ranking:** When requested to perform a general analysis or ranking, you MUST rank all vehicles from best to worst. This ranking must be holistic, considering a combination of all provided variables, not just one. Key factors to weigh include cost-effectiveness (cost_ton, cost_trip), productivity (tons, trips), and manufacturing year (year). Present the ranking clearly (e.g., a numbered list) and provide a justification for each vehicle's position, explaining its strengths and weaknesses.
+        4.  Provide specific, testable, and actionable recommendations. For example, suggest reassigning specific vehicles to different zones if data supports it ("انقل الضاغطة 7 إلى المنطقة الشرقية لتحسين الاستغلال").
+        5.  The data provides total costs. When you mention costs, clarify they are totals for the entire period covered by the data.
+        6.  The data columns are: veh (vehicle number), area (work zone), drivers, year (year of manufacture), cap_m3 (capacity in cubic meters), cap_ton (theoretical capacity in tons), trips (total trips), tons (total tons collected), fuel (total fuel cost), maint (total maintenance cost), cost_trip (average cost per trip), cost_ton (average cost per ton).
 
         **VEHICLE DATA (in JSON format):**
         ${JSON.stringify(data, null, 2)}

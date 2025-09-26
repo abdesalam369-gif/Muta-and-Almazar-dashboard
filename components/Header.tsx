@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Trip } from '../types';
 
@@ -63,16 +62,152 @@ const Header: React.FC<HeaderProps> = ({ tripsData, filters, onFilterToggle, onR
     const printKPIs = () => {
         const kpiElement = document.getElementById('kpi-grid');
         if (kpiElement) {
-            const printWindow = window.open('', '', 'height=600,width=800');
-            printWindow?.document.write('<html><head><title>طباعة المؤشرات</title>');
-            printWindow?.document.write('<link href="https://cdn.tailwindcss.com" rel="stylesheet">');
-            printWindow?.document.write('<style>body { font-family: "Cairo", sans-serif; direction: rtl; padding: 20px; }</style>');
-            printWindow?.document.write('</head><body>');
-            printWindow?.document.write('<h1>مؤشرات الأداء الرئيسية</h1>');
-            printWindow?.document.write(kpiElement.outerHTML);
-            printWindow?.document.write('</body></html>');
-            printWindow?.document.close();
-            printWindow?.print();
+            const printWindow = window.open('', '', 'height=800,width=1000');
+            if (!printWindow) {
+                alert('Please allow popups to print the report.');
+                return;
+            }
+
+            const today = new Date().toLocaleDateString('ar-EG-u-nu-latn', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            const kpiCardNodes = Array.from(kpiElement.children);
+            let cardsHtml = '';
+            kpiCardNodes.forEach(cardNode => {
+                const valueNode = cardNode.querySelector('div:first-child');
+                const labelNode = cardNode.querySelector('div:last-child');
+                const iconNode = labelNode?.querySelector('span');
+    
+                const value = valueNode?.textContent || '';
+                const icon = iconNode?.textContent || '';
+                
+                let label = '';
+                if (labelNode) {
+                    const labelClone = labelNode.cloneNode(true) as HTMLElement;
+                    const iconClone = labelClone.querySelector('span');
+                    if (iconClone) {
+                        labelClone.removeChild(iconClone);
+                    }
+                    label = labelClone.textContent?.trim() || '';
+                }
+    
+                const colorClass = valueNode?.className.split(' ').find(c => c.startsWith('text-')) || 'text-slate-800';
+    
+                cardsHtml += `
+                    <div class="kpi-card">
+                        <div class="kpi-value ${colorClass}">${value}</div>
+                        <div class="kpi-label">
+                            <span>${icon}</span>
+                            ${label}
+                        </div>
+                    </div>
+                `;
+            });
+    
+            const printContent = `
+                <html>
+                <head>
+                    <title>طباعة مؤشرات الأداء الرئيسية</title>
+                    <link rel="preconnect" href="https://fonts.googleapis.com">
+                    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+                    <style>
+                        body {
+                            font-family: 'Cairo', sans-serif;
+                            direction: rtl;
+                            margin: 20px;
+                            background-color: #fff;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        .print-header {
+                            text-align: center;
+                            margin-bottom: 25px;
+                            border-bottom: 2px solid #333;
+                            padding-bottom: 15px;
+                        }
+                        .print-header h1 {
+                            font-size: 24px;
+                            margin: 0;
+                            color: #1e3a8a;
+                        }
+                        .print-header h2 {
+                            font-size: 18px;
+                            margin: 5px 0 0;
+                            color: #4b5563;
+                        }
+                        .kpi-grid-container {
+                            display: grid;
+                            grid-template-columns: repeat(3, 1fr);
+                            gap: 20px;
+                            padding: 10px;
+                        }
+                        .kpi-card {
+                            border: 1px solid #e5e7eb;
+                            border-radius: 12px;
+                            padding: 16px;
+                            text-align: center;
+                            background-color: #f9fafb;
+                            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+                            page-break-inside: avoid;
+                        }
+                        .kpi-value {
+                            font-size: 28px;
+                            font-weight: 700;
+                            margin-bottom: 8px;
+                        }
+                        .kpi-label {
+                            font-size: 14px;
+                            font-weight: 600;
+                            color: #374151;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 8px;
+                        }
+                        .kpi-label span {
+                            font-size: 18px;
+                        }
+                        /* Specific color styles from KpiCard component */
+                        .text-blue-600 { color: #2563eb; }
+                        .text-sky-500 { color: #0ea5e9; }
+                        .text-orange-500 { color: #f97316; }
+                        .text-red-600 { color: #dc2626; }
+                        .text-green-600 { color: #16a34a; }
+                        .text-pink-600 { color: #db2777; }
+                        .text-purple-600 { color: #9333ea; }
+                        .text-indigo-600 { color: #4f46e5; }
+                        .text-teal-500 { color: #14b8a6; }
+                        .text-amber-500 { color: #f59e0b; }
+                        .text-slate-800 { color: #1e293b; }
+    
+                        @media print {
+                            body { margin: 0; }
+                            .print-header { margin: 20px; }
+                            .kpi-grid-container { grid-template-columns: repeat(3, 1fr); margin: 20px; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="print-header">
+                        <h1>مؤشرات الأداء الرئيسية لأسطول إدارة النفايات</h1>
+                        <h2>بلدية مؤتة والمزار - ${today}</h2>
+                    </div>
+                    <div class="kpi-grid-container">
+                        ${cardsHtml}
+                    </div>
+                </body>
+                </html>
+            `;
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
         }
     };
 

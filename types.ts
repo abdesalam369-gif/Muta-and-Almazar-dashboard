@@ -59,3 +59,11 @@ export interface VehicleTableData {
     cost_trip: number;
     cost_ton: number;
 }
+
+export interface DriverStatsData {
+    driver: string;
+    trips: number;
+    tons: number;
+    avgTonsPerTrip: number;
+    vehicles: string;
+}

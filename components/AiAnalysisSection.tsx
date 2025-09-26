@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import CollapsibleSection from './CollapsibleSection';
+import { printAiReport } from '../services/printService';
 
 interface AiAnalysisSectionProps {
     vehicles: string[];
@@ -7,14 +8,14 @@ interface AiAnalysisSectionProps {
     report: string;
     isLoading: boolean;
     error: string;
+    filters: { vehicles: Set<string>; months: Set<string> };
 }
 
-const AiAnalysisSection: React.FC<AiAnalysisSectionProps> = ({ vehicles, onGenerateReport, report, isLoading, error }) => {
+const AiAnalysisSection: React.FC<AiAnalysisSectionProps> = ({ vehicles, onGenerateReport, report, isLoading, error, filters }) => {
     const [analysisType, setAnalysisType] = useState('general');
     const [specificVehicle, setSpecificVehicle] = useState(vehicles[0] || '');
     const [comparisonVehicles, setComparisonVehicles] = useState<string[]>([]);
     const [customPrompt, setCustomPrompt] = useState('');
-    const reportRef = useRef<HTMLDivElement>(null);
 
     const handleGenerateClick = () => {
         const options: { vehicleId?: string; vehicleIds?: string[]; customPrompt?: string } = {};
@@ -43,39 +44,15 @@ const AiAnalysisSection: React.FC<AiAnalysisSectionProps> = ({ vehicles, onGener
     };
     
     const printReport = () => {
-        if(reportRef.current) {
-            // This is the official header for the printed document.
-            const printHeaderText = 'هذا التقرير خاص ببلدية مؤتة والمزار، تم إعداده من خلال قسم إدارة النفايات الصلبة، برئاسة م.عبد السلام البطوش.';
-            const printHeaderHtml = `<div class="print-header">${printHeaderText}</div>`;
-
-            // This is the header the AI is prompted to generate. We remove it to avoid duplication.
-            const aiGeneratedHeader = "هذا التقرير خاص ببلدية مؤتة والمزار، تم إعداده من خلال قسم إدارة النفايات الصلبة، برئاسة المهندس عبد السلام حميده البطوش.";
-
-            let cleanedReport = report.trim();
-            if (cleanedReport.startsWith(aiGeneratedHeader)) {
-                cleanedReport = cleanedReport.substring(aiGeneratedHeader.length).trim();
-            }
-
-            const reportHtmlContent = `<pre>${cleanedReport}</pre>`;
-
-            const printWindow = window.open('', '', 'height=800,width=800');
-            printWindow?.document.write('<html><head><title>طباعة تقرير الذكاء الاصطناعي</title>');
-            printWindow?.document.write('<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">');
-            printWindow?.document.write(`
-                <style>
-                    body { direction:rtl; font-family:"Cairo",sans-serif; margin:24px; } 
-                    .print-header { text-align: center; font-size: 1.2rem; font-weight: bold; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
-                    pre { white-space: pre-wrap; word-wrap: break-word; font-family: "Cairo", sans-serif; font-size: 1rem; line-height: 1.7; } 
-                    h1,h2,h3 { margin-top: 1.5em; margin-bottom: 0.5em; }
-                </style>
-            `);
-            printWindow?.document.write('</head><body>');
-            printWindow?.document.write(printHeaderHtml);
-            printWindow?.document.write(reportHtmlContent);
-            printWindow?.document.write('</body></html>');
-            printWindow?.document.close();
-            printWindow?.print();
+        if (!report || !report.trim()) {
+            alert('لا يوجد تقرير لطباعته.');
+            return;
         }
+        printAiReport(
+            report, 
+            'تقرير تحليل الأسطول بالذكاء الاصطناعي', 
+            filters
+        );
     };
 
     return (
@@ -165,7 +142,7 @@ const AiAnalysisSection: React.FC<AiAnalysisSectionProps> = ({ vehicles, onGener
                         {isLoading && <div className="flex items-center justify-center h-full text-slate-600">يتم الآن إنشاء التقرير...</div>}
                         {error && <div className="text-red-600">{error}</div>}
                         {report && !isLoading && (
-                            <div ref={reportRef}>
+                            <div>
                                 <pre className="whitespace-pre-wrap word-wrap break-words font-sans text-base leading-relaxed">{report}</pre>
                             </div>
                         )}

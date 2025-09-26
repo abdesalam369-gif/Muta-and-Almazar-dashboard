@@ -1,16 +1,18 @@
-
 import React, { useState, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Trip } from '../types';
 import { MONTHS_ORDER } from '../constants';
 import CollapsibleSection from './CollapsibleSection';
+import { printChart } from '../services/printService';
 
 interface ChartSectionProps {
     data: Trip[];
     isLoading: boolean;
+    filters: { vehicles: Set<string>; months: Set<string> };
+    chartRef: React.RefObject<HTMLDivElement>;
 }
 
-const ChartSection: React.FC<ChartSectionProps> = ({ data, isLoading }) => {
+const ChartSection: React.FC<ChartSectionProps> = ({ data, isLoading, filters, chartRef }) => {
     const [groupBy, setGroupBy] = useState<'month' | 'day'>('month');
     const [metric, setMetric] = useState<'trips' | 'tons'>('trips');
 
@@ -44,26 +46,9 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data, isLoading }) => {
         return sortedData;
     }, [data, groupBy, metric]);
 
-    const printChart = () => {
-        const chartEl = document.querySelector('.recharts-wrapper');
-        if (chartEl) {
-            const svgData = new XMLSerializer().serializeToString(chartEl.querySelector('svg')!);
-            const canvas = document.createElement('canvas');
-            const svgSize = chartEl.getBoundingClientRect();
-            canvas.width = svgSize.width;
-            canvas.height = svgSize.height;
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-            img.onload = () => {
-                ctx?.drawImage(img, 0, 0);
-                const pngFile = canvas.toDataURL('image/png');
-                const printWindow = window.open('', '', 'height=600,width=800');
-                printWindow?.document.write(`<html><head><title>طباعة الشارت</title></head><body><img src="${pngFile}"/></body></html>`);
-                printWindow?.document.close();
-                printWindow?.print();
-            };
-            img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
-        }
+    const handlePrint = () => {
+        const chartTitle = `السلاسل الزمنية - ${metric === 'trips' ? 'عدد الرحلات' : 'الأوزان (طن)'} حسب ${groupBy === 'month' ? 'الشهر' : 'اليوم'}`;
+        printChart(chartRef, chartTitle, filters);
     };
 
 
@@ -86,11 +71,11 @@ const ChartSection: React.FC<ChartSectionProps> = ({ data, isLoading }) => {
                         <option value="tons">الأوزان (طن)</option>
                     </select>
                 </div>
-                <button onClick={printChart} className="px-3 py-2 border-none rounded-lg bg-emerald-500 text-white text-sm font-semibold cursor-pointer shadow-md transition hover:bg-emerald-600">
-                    طباعة الشارت
+                <button onClick={handlePrint} className="px-3 py-2 border-none rounded-lg bg-emerald-500 text-white text-sm font-semibold cursor-pointer shadow-md transition hover:bg-emerald-600">
+                    طباعة الرسم البياني
                 </button>
             </div>
-            <div className="h-96 w-full relative">
+            <div className="h-96 w-full relative" ref={chartRef}>
                  {isLoading && (
                     <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
                         <div className="w-12 h-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>

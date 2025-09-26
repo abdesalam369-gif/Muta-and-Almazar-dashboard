@@ -1,10 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { VehicleTableData } from '../types';
 import { formatNumber } from '../services/dataService';
+import { printTable } from '../services/printService';
 import CollapsibleSection from './CollapsibleSection';
 
 interface UtilizationSectionProps {
-    vehicleTableData: VehicleTableData[];
+    tableData: VehicleTableData[];
+    filters: { vehicles: Set<string>; months: Set<string> };
 }
 
 type UtilizationData = {
@@ -14,11 +16,12 @@ type UtilizationData = {
     utilization: number;
 };
 
-const UtilizationSection: React.FC<UtilizationSectionProps> = ({ vehicleTableData }) => {
+const UtilizationSection: React.FC<UtilizationSectionProps> = ({ tableData, filters }) => {
     const [sortBy, setSortBy] = useState<keyof UtilizationData>('utilization');
+    const tableContainerRef = useRef<HTMLDivElement>(null);
 
     const utilizationData = useMemo<UtilizationData[]>(() => {
-        return vehicleTableData.map(v => {
+        return tableData.map(v => {
             const avgTonsPerTrip = v.trips > 0 ? v.tons / v.trips : 0;
             const utilization = v.cap_ton > 0 ? (avgTonsPerTrip / v.cap_ton) * 100 : 0;
             return {
@@ -28,7 +31,7 @@ const UtilizationSection: React.FC<UtilizationSectionProps> = ({ vehicleTableDat
                 utilization
             };
         });
-    }, [vehicleTableData]);
+    }, [tableData]);
 
     const sortedData = useMemo(() => {
         const sorted = [...utilizationData];
@@ -43,20 +46,8 @@ const UtilizationSection: React.FC<UtilizationSectionProps> = ({ vehicleTableDat
         return sorted;
     }, [utilizationData, sortBy]);
 
-    const printTable = () => {
-        const tableElement = document.getElementById('utilization-table');
-        if (tableElement) {
-            const printWindow = window.open('', '', 'height=600,width=800');
-            printWindow?.document.write('<html><head><title>طباعة جدول الاستغلال</title>');
-            printWindow?.document.write('<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">');
-            printWindow?.document.write('<style>body { direction:rtl; font-family:"Cairo",sans-serif; margin:24px } table{width:100%;border-collapse:collapse; font-size: 12px;} th,td{border:1px solid #e5e7eb;padding:6px;text-align:center} th{background:#f9fafb} .underutilized { background-color: #fee2e2 !important; -webkit-print-color-adjust: exact; }</style>');
-            printWindow?.document.write('</head><body>');
-            printWindow?.document.write('<h2>تحليل استغلال المركبات</h2>');
-            printWindow?.document.write(tableElement.outerHTML);
-            printWindow?.document.write('</body></html>');
-            printWindow?.document.close();
-            printWindow?.print();
-        }
+    const handlePrint = () => {
+        printTable(tableContainerRef, 'تحليل استغلال المركبات', filters);
     };
 
     const headers = [
@@ -76,11 +67,11 @@ const UtilizationSection: React.FC<UtilizationSectionProps> = ({ vehicleTableDat
                         {headers.map(h => <option key={h.key} value={h.key}>{h.label}</option>)}
                     </select>
                 </div>
-                <button onClick={printTable} className="px-3 py-2 border-none rounded-lg bg-emerald-500 text-white text-sm font-semibold cursor-pointer shadow-md transition hover:bg-emerald-600">
+                <button onClick={handlePrint} className="px-3 py-2 border-none rounded-lg bg-emerald-500 text-white text-sm font-semibold cursor-pointer shadow-md transition hover:bg-emerald-600">
                     طباعة الجدول
                 </button>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" ref={tableContainerRef}>
                 <table id="utilization-table" className="w-full text-sm text-center border-collapse">
                     <thead className="bg-slate-100">
                         <tr>

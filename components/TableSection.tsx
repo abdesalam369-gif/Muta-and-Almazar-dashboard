@@ -1,18 +1,20 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { VehicleTableData } from '../types';
 import { formatNumber } from '../services/dataService';
+import { printTable } from '../services/printService';
 import CollapsibleSection from './CollapsibleSection';
 
 interface TableSectionProps {
-    fullTableData: VehicleTableData[];
+    tableData: VehicleTableData[];
+    filters: { vehicles: Set<string>; months: Set<string> };
 }
 
-const TableSection: React.FC<TableSectionProps> = ({ fullTableData }) => {
-    const [sortBy, setSortBy] = useState<keyof VehicleTableData>('veh');
+const TableSection: React.FC<TableSectionProps> = ({ tableData, filters }) => {
+    const [sortBy, setSortBy] = useState<keyof VehicleTableData>('tons');
+    const tableContainerRef = useRef<HTMLDivElement>(null);
 
     const sortedData = useMemo(() => {
-        const sorted = [...fullTableData];
+        const sorted = [...tableData];
         sorted.sort((a, b) => {
             const valA = a[sortBy];
             const valB = b[sortBy];
@@ -25,7 +27,7 @@ const TableSection: React.FC<TableSectionProps> = ({ fullTableData }) => {
             return 0;
         });
         return sorted;
-    }, [fullTableData, sortBy]);
+    }, [tableData, sortBy]);
     
     const totals = useMemo(() => {
         if (sortedData.length === 0) return null;
@@ -33,26 +35,17 @@ const TableSection: React.FC<TableSectionProps> = ({ fullTableData }) => {
         const totalTons = sortedData.reduce((s, r) => s + r.tons, 0);
         const totalFuel = sortedData.reduce((s, r) => s + r.fuel, 0);
         const totalMaint = sortedData.reduce((s, r) => s + r.maint, 0);
-        const avgCostTrip = sortedData.reduce((s, r) => s + r.cost_trip, 0) / sortedData.length;
-        const avgCostTon = sortedData.reduce((s, r) => s + r.cost_ton, 0) / sortedData.length;
+        const totalCost = totalFuel + totalMaint;
+        
+        const avgCostTrip = totalTrips > 0 ? totalCost / totalTrips : 0;
+        const avgCostTon = totalTons > 0 ? totalCost / totalTons : 0;
+        
         return { totalTrips, totalTons, totalFuel, totalMaint, avgCostTrip, avgCostTon };
     }, [sortedData]);
 
-    const printTable = () => {
-        const tableElement = document.getElementById('vehicle-efficiency-table');
-        if (tableElement) {
-            const printWindow = window.open('', '', 'height=600,width=1000');
-            printWindow?.document.write('<html><head><title>طباعة جدول الكفاءة</title>');
-            printWindow?.document.write('<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">');
-            printWindow?.document.write('<style>body { direction:rtl; font-family:"Cairo",sans-serif; margin:24px } table{width:100%;border-collapse:collapse; font-size: 12px;} th,td{border:1px solid #e5e7eb;padding:6px;text-align:center} th{background:#f9fafb}</style>');
-            printWindow?.document.write('</head><body>');
-            printWindow?.document.write(tableElement.outerHTML);
-            printWindow?.document.write('</body></html>');
-            printWindow?.document.close();
-            printWindow?.print();
-        }
+    const handlePrint = () => {
+        printTable(tableContainerRef, 'جدول كفاءة المركبات', filters);
     };
-
 
     const headers = [
         { key: 'veh', label: 'رقم المركبة' }, { key: 'area', label: 'المنطقة' },
@@ -73,11 +66,11 @@ const TableSection: React.FC<TableSectionProps> = ({ fullTableData }) => {
                         {headers.map(h => <option key={h.key} value={h.key}>{h.label}</option>)}
                     </select>
                 </div>
-                <button onClick={printTable} className="px-3 py-2 border-none rounded-lg bg-emerald-500 text-white text-sm font-semibold cursor-pointer shadow-md transition hover:bg-emerald-600">
+                <button onClick={handlePrint} className="px-3 py-2 border-none rounded-lg bg-emerald-500 text-white text-sm font-semibold cursor-pointer shadow-md transition hover:bg-emerald-600">
                     طباعة الجدول
                 </button>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" ref={tableContainerRef}>
                 <table id="vehicle-efficiency-table" className="w-full text-sm text-center border-collapse">
                     <thead className="bg-slate-100">
                         <tr>
